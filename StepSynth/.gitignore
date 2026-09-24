@@ -1,0 +1,19 @@
+# Gradle and Android Studio build output
+.gradle/
+build/
+.kotlin/
+.cxx/
+.externalNativeBuild/
+local.properties
+captures/
+
+# Android Studio / IntelliJ settings
+.idea/
+*.iml
+
+# Desktop engine test output
+render_test
+render_test.exe
+demo.wav
+
+.DS_Store
