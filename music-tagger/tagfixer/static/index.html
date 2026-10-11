@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TagFixer</title>
+<link rel="icon" href="data:,">
+<style>
+:root {
+  --bg: #f6f6f4; --panel: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #e2e1dc;
+  --accent: #d98a00; --accent-text: #ffffff; --good: #2f8a4a; --warn: #b7791f; --bad: #c0392b;
+  --info: #3367b0; --chip: #efeeea; --row-hover: #fafaf7; --old: #9b3b2f; --new: #2b7a43;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161615; --panel: #1f1f1d; --text: #ecebe6; --muted: #a09f98; --line: #34332f;
+    --accent: #e5a00d; --accent-text: #1a1a1a; --good: #5cc27a; --warn: #e2b04a; --bad: #ef6b5b;
+    --info: #79a6ec; --chip: #2a2a27; --row-hover: #252523; --old: #f08b7c; --new: #7ad497;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+       background: var(--bg); color: var(--text); }
+header { background: var(--panel); border-bottom: 1px solid var(--line); padding: 14px 20px;
+         display: flex; flex-wrap: wrap; gap: 10px; align-items: center; position: sticky; top: 0; z-index: 5; }
+h1 { font-size: 18px; margin: 0 12px 0 0; }
+h1 span { color: var(--accent); }
+main { padding: 16px 20px 60px; max-width: 1400px; margin: 0 auto; }
+input[type=text], input[type=password], input[type=number] {
+  font: inherit; padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px;
+  background: var(--bg); color: var(--text); }
+#folder { flex: 1; min-width: 220px; }
+button { font: inherit; padding: 7px 14px; border-radius: 6px; border: 1px solid var(--line);
+         background: var(--chip); color: var(--text); cursor: pointer; white-space: nowrap; }
+button:hover:not(:disabled) { filter: brightness(0.96); }
+button:disabled { opacity: .45; cursor: default; }
+button.primary { background: var(--accent); color: var(--accent-text); border-color: transparent; font-weight: 600; }
+button.link { background: none; border: none; color: var(--info); padding: 2px 4px; }
+.hidden { display: none !important; }
+.muted { color: var(--muted); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; }
+#welcome h2 { margin-top: 0; font-size: 17px; }
+#welcome ol { padding-left: 20px; margin: 6px 0; }
+.progress { height: 8px; background: var(--chip); border-radius: 4px; overflow: hidden; margin: 8px 0 4px; }
+.progress div { height: 100%; background: var(--accent); width: 0; transition: width .3s; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border-radius: 999px; padding: 4px 12px; font-size: 13px; }
+.chip.on { background: var(--text); color: var(--bg); }
+.spacer { flex: 1; }
+table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 600; }
+tr.album { cursor: pointer; }
+tr.album:hover { background: var(--row-hover); }
+tr.album.open { background: var(--row-hover); }
+td.cb { width: 34px; }
+td.cb input { width: 16px; height: 16px; cursor: pointer; }
+.title { font-weight: 600; }
+.sub { font-size: 12.5px; color: var(--muted); overflow-wrap: anywhere; }
+.arrow { color: var(--muted); width: 20px; }
+.badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 4px;
+         margin: 2px 4px 0 0; background: var(--chip); color: var(--muted); }
+.badge.st { background: color-mix(in srgb, var(--info) 18%, transparent); color: var(--info); }
+.badge.va { background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent); }
+.status { font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+.s-good, .s-chosen, .s-applied { color: var(--good); }
+.s-review, .s-local { color: var(--warn); }
+.s-nomatch, .s-error { color: var(--bad); }
+.s-ok, .s-pending, .s-matching { color: var(--muted); }
+.detail td { background: var(--bg); padding: 14px 16px; }
+.detail h4 { margin: 0 0 6px; font-size: 13px; }
+.grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 18px; }
+@media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } }
+.cands { max-height: 360px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+.cand { padding: 8px 10px; border-bottom: 1px solid var(--line); display: flex; gap: 8px; align-items: flex-start; }
+.cand:last-child { border-bottom: none; }
+.cand.current { outline: 2px solid var(--accent); outline-offset: -2px; }
+.cand .grow { flex: 1; min-width: 0; }
+.files { width: 100%; font-size: 13px; }
+.files td { padding: 6px 8px; background: var(--panel); }
+.change { display: block; }
+.change b { font-weight: 500; color: var(--muted); display: inline-block; min-width: 104px; }
+.albumchanges { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 13px; }
+.old { color: var(--old); text-decoration: line-through; }
+.new { color: var(--new); }
+.paste { display: flex; gap: 6px; margin-top: 8px; }
+.paste input { flex: 1; min-width: 0; }
+#log { font: 12.5px/1.5 ui-monospace, Menlo, Consolas, monospace; white-space: pre-wrap; max-height: 160px; overflow: auto; }
+dialog { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--text);
+         padding: 0; width: min(560px, calc(100vw - 32px)); }
+dialog::backdrop { background: rgba(0,0,0,.4); }
+dialog .body { padding: 18px 20px; max-height: 70vh; overflow: auto; }
+dialog .foot { padding: 12px 20px; border-top: 1px solid var(--line); display: flex; gap: 8px; justify-content: flex-end; }
+dialog h3 { margin: 0 0 12px; }
+.opt { display: block; margin: 8px 0; }
+.opt small { display: block; color: var(--muted); margin-left: 24px; }
+fieldset { border: 1px solid var(--line); border-radius: 8px; margin: 12px 0; padding: 8px 12px; }
+legend { font-weight: 600; padding: 0 4px; }
+.dirlist { border: 1px solid var(--line); border-radius: 8px; max-height: 340px; overflow: auto; margin-top: 8px; }
+.dirlist div { padding: 6px 10px; cursor: pointer; border-bottom: 1px solid var(--line); }
+.dirlist div:hover { background: var(--row-hover); }
+.empty { padding: 30px; text-align: center; color: var(--muted); }
+#toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg);
+         padding: 9px 16px; border-radius: 8px; font-size: 13.5px; z-index: 50; max-width: 90vw; }
+@media (max-width: 700px) {
+  header, main { padding-left: 16px; padding-right: 16px; }
+  .hide-sm { display: none; }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>Tag<span>Fixer</span></h1>
+  <input id="folder" type="text" placeholder="Music folder, e.g. /Volumes/Music or D:\Music" spellcheck="false">
+  <button id="browseBtn">Browse…</button>
+  <button id="scanBtn" class="primary">Scan &amp; look up</button>
+  <button id="settingsBtn" title="Settings">Settings</button>
+</header>
+
+<main>
+  <section id="welcome" class="card">
+    <h2>Fix your music tags in three steps</h2>
+    <ol>
+      <li><b>Pick your music folder</b> and press <b>Scan &amp; look up</b>. Every album is looked up on MusicBrainz (about one album per second - large libraries take a while, and you can start reviewing straight away).</li>
+      <li><b>Check the list.</b> Confident matches are ticked for you. Click any album to see exactly what will change, pick a different edition, or paste a MusicBrainz link.</li>
+      <li><b>Press Apply.</b> Only ticked albums are written. Every batch can be undone.</li>
+    </ol>
+    <p class="muted">Soundtracks and various-artist compilations are tagged so Plex/Plexamp file them correctly (album artist, compilation flag and release type). See Settings for how soundtracks are grouped.</p>
+  </section>
+
+  <section id="progressCard" class="card hidden">
+    <div style="display:flex;align-items:center;gap:10px">
+      <b id="phaseText">Working…</b><span id="progText" class="muted"></span>
+      <span class="spacer"></span><button id="stopBtn">Stop</button>
+    </div>
+    <div class="progress"><div id="progBar"></div></div>
+    <div id="progCurrent" class="sub"></div>
+  </section>
+
+  <section id="results" class="hidden">
+    <div class="toolbar">
+      <div class="chips" id="filters"></div>
+      <span class="spacer"></span>
+      <input id="search" type="text" placeholder="Filter…" style="width:160px">
+    </div>
+    <div class="toolbar">
+      <button id="selReady">Tick all ready</button>
+      <button id="selShown">Tick all shown</button>
+      <button id="selNone">Untick all</button>
+      <button id="retryBtn" class="hidden">Look up remaining</button>
+      <span class="spacer"></span>
+      <button id="undoBtn">Undo last batch</button>
+      <button id="applyBtn" class="primary" disabled>Apply</button>
+    </div>
+    <table>
+      <thead><tr>
+        <th></th><th>Now</th><th class="arrow hide-sm"></th><th>After</th><th class="hide-sm">Match</th>
+      </tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div id="more" class="empty hidden"></div>
+    <div id="unreadable" class="card hidden" style="margin-top:14px"></div>
+  </section>
+
+  <section class="card" id="logCard" style="margin-top:14px">
+    <h4 style="margin:0 0 6px">Activity</h4>
+    <div id="log" class="muted">Nothing yet.</div>
+  </section>
+</main>
+
+<dialog id="browseDlg">
+  <div class="body">
+    <h3>Choose your music folder</h3>
+    <div class="sub" id="browsePath"></div>
+    <div class="dirlist" id="dirlist"></div>
+  </div>
+  <div class="foot">
+    <button id="browseCancel">Cancel</button>
+    <button id="browseChoose" class="primary">Use this folder</button>
+  </div>
+</dialog>
+
+<dialog id="settingsDlg">
+  <div class="body">
+    <h3>Settings</h3>
+    <fieldset>
+      <legend>Soundtracks</legend>
+      <label class="opt"><input type="radio" name="soundtrack_artist" value="auto">
+        Follow MusicBrainz <small>Multi-artist soundtracks go under "Various Artists"; a film score by one composer stays under that composer. Plexamp still knows they are soundtracks.</small></label>
+      <label class="opt"><input type="radio" name="soundtrack_artist" value="various">
+        All soundtracks under "Various Artists"</label>
+      <label class="opt"><input type="radio" name="soundtrack_artist" value="soundtrack">
+        All soundtracks under an artist called "Soundtrack" <small>Keeps them together in one place in Plex.</small></label>
+      <label class="opt"><input type="checkbox" name="soundtrack_genre"> Set genre to "Soundtrack"</label>
+    </fieldset>
+    <fieldset>
+      <legend>Tags</legend>
+      <label class="opt"><input type="checkbox" name="use_original_date"> Use the original release year
+        <small>A 2011 remaster of a 1973 album is tagged 1973.</small></label>
+      <label class="opt"><input type="checkbox" name="write_genres"> Replace genres with MusicBrainz genres
+        <small>Off by default - MusicBrainz genre data is patchy and your own genres are usually better.</small></label>
+      <label class="opt"><input type="checkbox" name="embed_cover"> Add cover art to files that have none</label>
+      <label class="opt"><input type="checkbox" name="save_cover_file"> Save cover.jpg in album folders that have none
+        <small>Plex picks this up as album artwork.</small></label>
+      <label class="opt">Auto-tick matches with confidence of at least
+        <input type="number" name="auto_select" min="0.5" max="1" step="0.01" style="width:80px"></label>
+    </fieldset>
+    <fieldset>
+      <legend>Plex (optional)</legend>
+      <p class="muted" style="margin:4px 0 8px">Fill these in to make Plex rescan the changed folders after each Apply.</p>
+      <label class="opt">Server address <input type="text" name="plex_url" placeholder="http://192.168.1.10:32400" style="width:100%"></label>
+      <label class="opt">Plex token <input type="password" name="plex_token" style="width:100%">
+        <small style="margin-left:0">How to find it: support.plex.tv/articles/204059436</small></label>
+      <label class="opt">If Plex sees your music under a different path, translate<br>
+        <input type="text" name="plex_path_from" placeholder="path here, e.g. /Volumes/Music" style="width:48%">
+        → <input type="text" name="plex_path_to" placeholder="path on Plex, e.g. /data/music" style="width:45%"></label>
+    </fieldset>
+  </div>
+  <div class="foot">
+    <button id="settingsCancel">Cancel</button>
+    <button id="settingsSave" class="primary">Save</button>
+  </div>
+</dialog>
+
+<div id="toast" class="hidden"></div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const albums = new Map();      // id -> row data
+const details = new Map();     // id -> detail data (loaded on demand)
+let version = 0, state = null, filter = "all", openId = null, query = "";
+const PAGE = 300; let shownLimit = PAGE;
+
+// Build DOM safely - tag values can contain anything, never use innerHTML with them.
+function h(tag, attrs, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v == null || v === false) continue;
+    if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+    else if (k === "class") el.className = v;
+    else el.setAttribute(k, v === true ? "" : v);
+  }
+  for (const kid of kids.flat()) if (kid != null && kid !== false) el.append(kid.nodeType ? kid : String(kid));
+  return el;
+}
+function toast(msg) {
+  const t = $("toast"); t.textContent = msg; t.classList.remove("hidden");
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.add("hidden"), 4000);
+}
+async function api(path, body) {
+  const opts = body === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json", "X-TagFixer": "1" }, body: JSON.stringify(body) };
+  const r = await fetch(path, opts);
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || r.statusText);
+  return data;
+}
+const fmtList = (v) => Array.isArray(v) ? v.join(", ") : (v ?? "");
+const STATUS = {
+  pending: "Waiting", matching: "Looking up…", good: "Ready", review: "Check", chosen: "Your pick",
+  local: "Local fix", nomatch: "Not found", error: "Error", ok: "Already correct", applied: "Done",
+};
+const FILTERS = [
+  ["all", "All"], ["ready", "Ready"], ["review", "Needs a look"], ["local", "Local fix"],
+  ["nomatch", "Not found"], ["ok", "Already correct"], ["applied", "Done"],
+];
+function statusOf(a) { return a.applied ? "applied" : a.status; }
+function inFilter(a) {
+  const s = statusOf(a);
+  const pass = filter === "all" ? true
+    : filter === "ready" ? (s === "good" || s === "chosen")
+    : filter === "review" ? s === "review"
+    : filter === "nomatch" ? (s === "nomatch" || s === "error")
+    : s === filter;
+  if (!pass) return false;
+  if (!query) return true;
+  const hay = [a.folder, a.current.artist, a.current.album, a.release && a.release.title, a.release && a.release.artist].join(" ").toLowerCase();
+  return hay.includes(query);
+}
+
+// ---------------------------------------------------------------- polling
+async function poll() {
+  try {
+    const s = await api("/api/state?since=" + version);
+    if (s.full) { albums.clear(); }
+    for (const a of s.albums) {
+      albums.set(a.id, a);
+      if (details.has(a.id)) details.delete(a.id);
+    }
+    const changed = s.albums.length > 0 || !state || s.version !== state.version;
+    version = s.version; state = s;
+    if (changed) render();
+  } catch (e) { /* server restarting - try again */ }
+  setTimeout(poll, state && state.busy ? 700 : 2000);
+}
+
+// ---------------------------------------------------------------- rendering
+function render() {
+  const s = state;
+  if (s.root && !$("folder").value) $("folder").value = s.root;
+  const has = albums.size > 0;
+  $("welcome").classList.toggle("hidden", has || s.busy);
+  $("results").classList.toggle("hidden", !has);
+
+  // progress
+  $("progressCard").classList.toggle("hidden", !s.busy);
+  if (s.busy) {
+    const p = s.progress;
+    $("phaseText").textContent = { scanning: "Reading files", matching: "Looking up albums", applying: "Writing tags" }[s.phase] || "Working";
+    $("progText").textContent = p.total ? `${p.done} of ${p.total}` : "";
+    $("progBar").style.width = p.total ? (100 * p.done / p.total) + "%" : "0";
+    $("progCurrent").textContent = p.current || "";
+  }
+  $("scanBtn").disabled = s.busy;
+  $("undoBtn").disabled = s.busy;
+  $("applyBtn").disabled = s.busy || !s.selected;
+  $("applyBtn").textContent = s.selected ? `Apply ${s.selected} album${s.selected === 1 ? "" : "s"}` : "Apply";
+  const pending = (s.counts.pending || 0) + (s.counts.error || 0);
+  $("retryBtn").classList.toggle("hidden", s.busy || !pending);
+  $("retryBtn").textContent = `Look up remaining (${pending})`;
+
+  $("log").textContent = s.messages.length ? s.messages.join("\n") : "Nothing yet.";
+  $("log").scrollTop = 1e9;
+
+  // filter chips
+  const counts = { all: albums.size };
+  for (const a of albums.values()) {
+    const st = statusOf(a);
+    const key = (st === "good" || st === "chosen") ? "ready" : (st === "error") ? "nomatch" : st;
+    counts[key] = (counts[key] || 0) + 1;
+  }
+  $("filters").replaceChildren(...FILTERS.filter(([k]) => k === "all" || counts[k] || k === filter).map(([k, label]) =>
+    h("button", { class: "chip" + (k === filter ? " on" : ""), onclick: () => { filter = k; shownLimit = PAGE; render(); } },
+      `${label} ${counts[k] || 0}`)));
+
+  // rows
+  const list = [...albums.values()].filter(inFilter);
+  const rows = [];
+  for (const a of list.slice(0, shownLimit)) {
+    rows.push(albumRow(a));
+    if (a.id === openId) rows.push(detailRow(a));
+  }
+  if (!list.length) rows.push(h("tr", {}, h("td", { colspan: 5, class: "empty" }, "Nothing here.")));
+  $("rows").replaceChildren(...rows);
+  $("more").classList.toggle("hidden", list.length <= shownLimit);
+  $("more").replaceChildren(h("button", { onclick: () => { shownLimit += PAGE; render(); } },
+    `Show more (${list.length - shownLimit} hidden)`));
+
+  const bad = s.unreadable || [];
+  $("unreadable").classList.toggle("hidden", !bad.length);
+  $("unreadable").replaceChildren(h("h4", { style: "margin:0 0 6px" }, `${bad.length} file(s) could not be read and were skipped`),
+    ...bad.slice(0, 50).map(b => h("div", { class: "sub" }, `${b.rel} - ${b.error}`)));
+}
+
+const LABELS = {
+  albumartist: "Album artist", album: "Album", date: "Year/date", releasetype: "Release type",
+  compilation: "Compilation", genre: "Genre", title: "Title", artist: "Artist",
+  tracknumber: "Track #", discnumber: "Disc #",
+};
+const ALBUM_FIELDS = ["albumartist", "album", "date", "releasetype", "compilation", "genre"];
+const TECH_NAMES = {
+  mb_albumid: "MusicBrainz IDs", mb_releasegroupid: "MusicBrainz IDs", mb_recordingid: "MusicBrainz IDs",
+  mb_releasetrackid: "MusicBrainz IDs", mb_artistid: "MusicBrainz IDs", mb_albumartistid: "MusicBrainz IDs",
+  artistsort: "sort names", albumartistsort: "sort names", label: "label", catalognumber: "catalogue number",
+  barcode: "barcode", releasestatus: "release status", releasecountry: "country", media: "media",
+  isrc: "ISRC", originaldate: "original date", totaltracks: "track/disc totals", totaldiscs: "track/disc totals",
+};
+function changeValue(k, v) {
+  if (k === "compilation") return v === "1" ? "Yes" : "No";
+  return fmtList(v);
+}
+function changeLine(k, old, v) {
+  const hasOld = old != null && old !== "" && !(Array.isArray(old) && !old.length);
+  return h("span", { class: "change" }, h("b", {}, LABELS[k] || k),
+    hasOld ? h("span", { class: "old" }, changeValue(k, old)) : null, hasOld ? " → " : "",
+    v == null ? h("i", { class: "muted" }, "(removed)") : h("span", { class: "new" }, changeValue(k, v)));
+}
+
+function badges(flags, types) {
+  const out = [];
+  types = types || [];
+  if (flags.soundtrack || types.includes("soundtrack")) out.push(h("span", { class: "badge st" }, "Soundtrack"));
+  if (flags.various) out.push(h("span", { class: "badge va" }, "Various Artists"));
+  else if (flags.compilation || types.includes("compilation")) out.push(h("span", { class: "badge" }, "Compilation"));
+  for (const t of ["live", "ep", "single"]) if (types.includes(t)) out.push(h("span", { class: "badge" }, t.toUpperCase()));
+  return out;
+}
+
+function albumRow(a) {
+  const st = statusOf(a);
+  const canTick = !a.applied && a.changed > 0;
+  const cur = a.current;
+  const n = a.new;
+  let after;
+  if (a.status === "pending" || a.status === "matching") after = h("span", { class: "muted" }, "…");
+  else if (n) {
+    after = h("div", {},
+      h("div", { class: "title" }, `${n.albumartist || "?"} - ${n.album || "?"}${n.date ? ` (${n.date})` : ""}`),
+      h("div", {}, badges(a.flags, n.releasetype),
+        h("span", { class: "sub" }, a.changed ? `${a.changed} of ${a.tracks} files change` : "no changes")));
+  } else after = h("span", { class: "sub" }, a.message || "");
+  const conf = a.confidence != null ? Math.round(a.confidence * 100) + "%" : "";
+  return h("tr", { class: "album" + (a.id === openId ? " open" : ""), onclick: (e) => { if (e.target.tagName !== "INPUT") toggleOpen(a.id); } },
+    h("td", { class: "cb" }, h("input", { type: "checkbox", checked: a.selected, disabled: !canTick,
+      title: canTick ? "Include in Apply" : "Nothing to apply",
+      onchange: (e) => select([a.id], e.target.checked) })),
+    h("td", {},
+      h("div", { class: "title" }, `${cur.artist || "Unknown artist"} - ${cur.album || "Unknown album"}${cur.year ? ` (${cur.year})` : ""}`),
+      h("div", { class: "sub" }, `${a.folder} · ${a.tracks} track${a.tracks === 1 ? "" : "s"}`)),
+    h("td", { class: "arrow hide-sm" }, "→"),
+    h("td", {}, after),
+    h("td", { class: "hide-sm" }, h("div", { class: "status s-" + st }, STATUS[st] || st), h("div", { class: "sub" }, conf)));
+}
+
+function toggleOpen(id) {
+  openId = openId === id ? null : id;
+  render();
+}
+const loading = new Set();
+async function loadDetail(id) {
+  if (loading.has(id)) return;
+  loading.add(id);
+  try { details.set(id, await api("/api/album?id=" + encodeURIComponent(id))); }
+  catch (e) { toast(e.message); if (openId === id) openId = null; }
+  finally { loading.delete(id); }
+  if (openId === id) render();
+}
+
+function detailRow(a) {
+  const d = details.get(a.id);
+  if (!d) { loadDetail(a.id); return h("tr", { class: "detail" }, h("td", { colspan: 5 }, h("span", { class: "muted" }, "Loading…"))); }
+  const rel = d.release;
+  const left = h("div", {},
+    h("h4", {}, "Match"),
+    rel ? h("div", {}, h("div", { class: "title" }, `${rel.artist} - ${rel.title}`),
+      h("div", { class: "sub" }, [rel.date, rel.country, rel.format, rel.label, `${rel.tracks} tracks`].filter(Boolean).join(" · ")),
+      h("a", { href: rel.url, target: "_blank", rel: "noopener", class: "sub" }, "View on MusicBrainz"))
+      : h("div", { class: "sub" }, d.message || "No release chosen."),
+    d.message && rel ? h("div", { class: "sub", style: "margin-top:6px" }, d.message) : null,
+    h("h4", { style: "margin-top:14px" }, "Other possible releases"),
+    d.candidates.length ? h("div", { class: "cands" }, d.candidates.map(c =>
+      h("div", { class: "cand" + (rel && c.id === rel.id ? " current" : "") },
+        h("div", { class: "grow" },
+          h("div", {}, h("b", {}, c.title), " ", h("span", { class: "muted" }, "by " + c.artist)),
+          h("div", { class: "sub" }, [c.date, c.country, c.format, c.label, `${c.tracks} tracks`, `${Math.round(c.score * 100)}%`].filter(Boolean).join(" · ")),
+          h("div", {}, badges({}, c.types), h("a", { href: c.url, target: "_blank", rel: "noopener", class: "sub" }, "details"))),
+        rel && c.id === rel.id ? h("span", { class: "sub" }, "in use")
+          : h("button", { onclick: () => choose(a.id, c.id) }, "Use this"))))
+      : h("div", { class: "sub" }, "None found."),
+    h("div", { class: "paste" },
+      h("input", { type: "text", placeholder: "…or paste a MusicBrainz release link", id: "paste-" + a.id }),
+      h("button", { onclick: () => choose(a.id, $("paste-" + a.id).value) }, "Use")),
+    h("div", { class: "sub", style: "margin-top:4px" }, "Tip: search musicbrainz.org for the exact edition you own and paste its link here."));
+
+  // Album-wide fields are shown once; per-file rows only show what differs per track.
+  const changed = d.files.filter(f => f.changes && Object.keys(f.changes).length);
+  const albumKeys = ALBUM_FIELDS.filter(k => changed.length && changed.every(f => k in f.changes &&
+    JSON.stringify(f.changes[k]) === JSON.stringify(changed[0].changes[k])));
+  const tech = new Set();
+  const albumBox = albumKeys.length ? h("div", { class: "albumchanges" },
+    albumKeys.map(k => changeLine(k, changed[0].current[k], changed[0].changes[k]))) : null;
+  const fileRows = d.files.map(f => {
+    const ch = Object.entries(f.changes || {}).filter(([k]) => {
+      if (albumKeys.includes(k)) return false;
+      if (!LABELS[k]) { tech.add(k); return false; }
+      return true;
+    });
+    return h("tr", {},
+      h("td", { style: "width:42%" }, h("div", {}, f.current.title || f.rel.split(/[\\/]/).pop()),
+        h("div", { class: "sub" }, f.rel),
+        f.matched ? h("div", { class: "sub" }, `matched to disc ${f.matched.disc}, track ${f.matched.position}: ${f.matched.title}`) : null,
+        f.warning ? h("div", { class: "sub", style: "color:var(--bad)" }, f.warning) : null),
+      h("td", {}, ch.length ? ch.map(([k, v]) => changeLine(k, f.current[k], v))
+        : h("span", { class: "muted" }, f.changes && Object.keys(f.changes).length ? "only album-wide changes" : "no change")));
+  });
+  const right = h("div", {},
+    albumBox ? h("h4", {}, "Every track") : null, albumBox,
+    h("h4", { style: albumBox ? "margin-top:14px" : "" }, "Per track"),
+    h("table", { class: "files" }, h("tbody", {}, fileRows)),
+    tech.size ? h("div", { class: "sub", style: "margin-top:6px" },
+      `Also writes ${tech.size} background tags Plex uses for matching (${[...tech].map(k => TECH_NAMES[k] || k).filter((v, i, a) => a.indexOf(v) === i).join(", ")}).`) : null);
+  return h("tr", { class: "detail" }, h("td", { colspan: 5 }, h("div", { class: "grid2" }, left, right)));
+}
+
+// ---------------------------------------------------------------- actions
+async function select(ids, value) {
+  try { await api("/api/select", { ids, selected: value }); } catch (e) { toast(e.message); }
+  for (const id of ids) { const a = albums.get(id); if (a && !a.applied && a.changed) a.selected = value; }
+  render();
+}
+async function choose(id, release) {
+  if (!release) return toast("Paste a MusicBrainz release link first.");
+  toast("Looking up that release…");
+  try { const d = await api("/api/choose", { id, release }); details.set(id, d); albums.set(id, Object.assign(albums.get(id), d)); render(); toast("Updated - review the changes, then Apply."); }
+  catch (e) { toast(e.message); }
+}
+
+$("scanBtn").onclick = async () => {
+  const path = $("folder").value.trim();
+  if (!path) return toast("Type or browse to your music folder first.");
+  try { await api("/api/scan", { path }); albums.clear(); details.clear(); openId = null; version = 0; filter = "all"; poll(); }
+  catch (e) { toast(e.message); }
+};
+$("stopBtn").onclick = () => api("/api/stop", {}).then(() => toast("Stopping after the current album…"));
+$("retryBtn").onclick = () => api("/api/retry", {}).catch(e => toast(e.message));
+$("selReady").onclick = () => select([...albums.values()].filter(a => ["good", "chosen"].includes(a.status) && !a.applied && a.changed).map(a => a.id), true);
+$("selShown").onclick = () => select([...albums.values()].filter(a => inFilter(a) && !a.applied && a.changed && !["nomatch", "error", "pending", "matching"].includes(a.status)).map(a => a.id), true);
+$("selNone").onclick = () => select([...albums.keys()], false);
+$("search").oninput = (e) => { query = e.target.value.trim().toLowerCase(); shownLimit = PAGE; render(); };
+$("applyBtn").onclick = async () => {
+  const n = state.selected;
+  if (!confirm(`Write new tags to ${n} album${n === 1 ? "" : "s"}?\n\nYou can undo this batch afterwards with "Undo last batch".`)) return;
+  try { await api("/api/apply", {}); } catch (e) { toast(e.message); }
+};
+$("undoBtn").onclick = async () => {
+  if (!confirm("Undo the most recent batch of changes?")) return;
+  try { const r = await api("/api/undo", {}); toast(r.count ? `Restored ${r.count} files.` : "Nothing to undo."); }
+  catch (e) { toast(e.message); }
+};
+
+// folder browser
+let browsePath = "";
+async function browse(path) {
+  try {
+    const d = await api("/api/browse?path=" + encodeURIComponent(path || ""));
+    browsePath = d.path;
+    $("browsePath").textContent = d.path || "This computer";
+    const items = [];
+    if (d.parent != null) items.push(h("div", { onclick: () => browse(d.parent) }, "⬆  Up one level"));
+    for (const name of d.dirs) {
+      const full = d.path ? (d.path.endsWith("/") || d.path.endsWith("\\") ? d.path + name : d.path + (d.path.includes("\\") ? "\\" : "/") + name) : name;
+      items.push(h("div", { onclick: () => browse(full) }, "📁  " + name));
+    }
+    if (d.error) items.push(h("div", { class: "muted" }, d.error));
+    $("dirlist").replaceChildren(...items);
+  } catch (e) { toast(e.message); }
+}
+$("browseBtn").onclick = () => { browse($("folder").value.trim()); $("browseDlg").showModal(); };
+$("browseCancel").onclick = () => $("browseDlg").close();
+$("browseChoose").onclick = () => { if (browsePath) $("folder").value = browsePath; $("browseDlg").close(); };
+
+// settings
+async function openSettings() {
+  const s = await api("/api/settings");
+  const form = $("settingsDlg");
+  for (const el of form.querySelectorAll("input[name]")) {
+    const v = s[el.name];
+    if (el.type === "radio") el.checked = el.value === v;
+    else if (el.type === "checkbox") el.checked = !!v;
+    else el.value = v ?? "";
+  }
+  form.showModal();
+}
+$("settingsBtn").onclick = () => openSettings().catch(e => toast(e.message));
+$("settingsCancel").onclick = () => $("settingsDlg").close();
+$("settingsSave").onclick = async () => {
+  const out = {};
+  for (const el of $("settingsDlg").querySelectorAll("input[name]")) {
+    if (el.type === "radio") { if (el.checked) out[el.name] = el.value; }
+    else if (el.type === "checkbox") out[el.name] = el.checked;
+    else if (el.type === "number") out[el.name] = parseFloat(el.value) || 0.85;
+    else out[el.name] = el.value.trim();
+  }
+  try { await api("/api/settings", out); $("settingsDlg").close(); toast("Saved. Settings apply to the next scan (or pick a release again to refresh one album)."); }
+  catch (e) { toast(e.message); }
+};
+
+poll();
+</script>
+</body>
+</html>

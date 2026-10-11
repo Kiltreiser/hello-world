@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tagfixer"
+version = "1.0.0"
+description = "Fix music tags in bulk using MusicBrainz, with Plex/Plexamp-friendly soundtrack and compilation handling"
+requires-python = ">=3.8"
+dependencies = ["mutagen>=1.45"]
+
+[project.scripts]
+tagfixer = "tagfixer.__main__:main"
+
+[tool.setuptools]
+packages = ["tagfixer"]
+
+[tool.setuptools.package-data]
+tagfixer = ["static/*.html"]
