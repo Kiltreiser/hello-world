@@ -16,36 +16,33 @@ def default_data_dir():
 
 
 class UndoLog:
-    """One JSON file per batch, holding the old value of every field changed."""
+    """One file per batch, one JSON line per change, holding the old value of
+    every field changed. Lines are appended, so big batches stay fast and a
+    crash mid-batch is still undoable."""
 
     def __init__(self, data_dir=None):
         self.dir = os.path.join(data_dir or default_data_dir(), "undo")
         self.path = None
-        self.entries = []
 
     def start(self):
         os.makedirs(self.dir, exist_ok=True)
         stamp = time.strftime("%Y%m%d-%H%M%S")
-        self.path = os.path.join(self.dir, f"{stamp}.json")
+        self.path = os.path.join(self.dir, f"{stamp}.jsonl")
         n = 1
         while os.path.exists(self.path):
             n += 1
-            self.path = os.path.join(self.dir, f"{stamp}-{n}.json")
-        self.entries = []
-        self._save()
+            self.path = os.path.join(self.dir, f"{stamp}-{n}.jsonl")
+        open(self.path, "w").close()
 
     def record(self, entry):
-        self.entries.append(entry)
-        self._save()  # saved after every file, so a crash mid-batch is still undoable
-
-    def _save(self):
-        tmp = self.path + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump({"entries": self.entries}, f, ensure_ascii=False, indent=1)
-        os.replace(tmp, self.path)
+        with open(self.path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+            f.flush()
 
     def batches(self):
-        return sorted(glob.glob(os.path.join(self.dir, "*.json")))
+        # Empty batches (nothing was written) are skipped.
+        return sorted(p for p in glob.glob(os.path.join(self.dir, "*.jsonl"))
+                      if os.path.getsize(p) > 0)
 
 
 def apply_album(album, release_id, settings, mb=None, undo=None, single_album_folder=True):
@@ -106,8 +103,13 @@ def undo_last(data_dir=None):
     if not batches:
         return 0, [], None
     path = batches[-1]
+    entries = []
     with open(path, encoding="utf-8") as fh:
-        entries = json.load(fh).get("entries", [])
+        for line in fh:
+            try:
+                entries.append(json.loads(line))
+            except ValueError:
+                pass  # half-written last line after a crash
     restored, errors = 0, []
     for e in reversed(entries):
         try:
@@ -119,5 +121,5 @@ def undo_last(data_dir=None):
             restored += 1
         except Exception as ex:
             errors.append(f"{e.get('path') or e.get('created_file')}: {ex}")
-    os.replace(path, path[:-5] + ".undone")
+    os.replace(path, path[:-6] + ".undone")
     return restored, errors, path
